@@ -1,0 +1,45 @@
+{
+	"name": "simpleenvstruct",
+	"version": "0.1.0",
+	"description": "Read environment variables into a typed struct from a declarative spec. One file, zero dependencies.",
+	"keywords": [
+		"env",
+		"environment-variables",
+		"dotenv",
+		"config",
+		"typescript",
+		"type-safe",
+		"vite"
+	],
+	"license": "MIT",
+	"author": "rin00159",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src"
+	],
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "bun test",
+		"check": "biome check --write .",
+		"prepublishOnly": "bun run typecheck && bun test && bun run build"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.3",
+		"@types/bun": "^1.3.0",
+		"typescript": "^5.4.0"
+	}
+}
