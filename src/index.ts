@@ -1,27 +1,36 @@
-/** 環境変数1件のマッピング。`key` の環境変数を、結果では `as` の名前で受け取る */
+/**
+ * One declared value. The value read at `key` is returned under the name `as`.
+ * When `as` is omitted, `key` itself becomes the property name in the result.
+ */
 export type EnvVarSpec = {
-	/** 結果オブジェクト側のプロパティ名 (例: "apiKey") */
-	as: string;
-	/** 読み出す環境変数のキー名 (例: "VITE_FIREBASE_API_KEY") */
+	/** Key to read from the source (e.g. "VITE_FIREBASE_API_KEY") */
 	key: string;
+	/** Property name in the result (e.g. "apiKey"). Defaults to `key` */
+	as?: string;
 };
 
-/** 環境変数の入力元。`process.env` や `import.meta.env` をそのまま渡せる */
+/** The source to read from. `process.env` and `import.meta.env` can be passed as-is */
 export type EnvSource = Record<string, string | undefined>;
 
+/** Property name in the result for a single spec entry */
+type NameOf<S extends EnvVarSpec> = S extends { as: string }
+	? S["as"]
+	: S["key"];
+
 /**
- * spec 配列から、`as` をプロパティ名とする構造体型を組み立てる。
- * 未設定の環境変数はキーごと省かれるため、全プロパティが optional になる。
+ * Builds the struct type from the spec array.
+ * Unresolved values are dropped entirely, so every property is optional.
  */
 export type EnvStruct<T extends readonly EnvVarSpec[]> = {
-	[K in T[number] as K["as"]]: string;
+	[S in T[number] as NameOf<S>]: string;
 } extends infer O
 	? { [P in keyof O]?: O[P] }
 	: never;
 
 /**
- * spec に沿って環境変数を読み出し、`as` を名前とする構造体にして返す。
- * 未設定・空文字列の変数はキーごと省く(throw しない)。必須チェックは呼び出し側の責務。
+ * Reads values per the spec and returns them as a struct keyed by `as` (or `key` when omitted).
+ * Values that are unset or empty are dropped from the result; this never throws.
+ * Enforcing required keys is the caller's job.
  */
 export function parseEnv<const T extends readonly EnvVarSpec[]>(
 	spec: T,
@@ -29,10 +38,10 @@ export function parseEnv<const T extends readonly EnvVarSpec[]>(
 ): EnvStruct<T> {
 	const result: Record<string, string> = {};
 
-	for (const { as, key } of spec) {
+	for (const { key, as } of spec) {
 		const value = env[key];
 		if (value !== undefined && value !== "") {
-			result[as] = value;
+			result[as ?? key] = value;
 		}
 	}
 

@@ -2,12 +2,12 @@ import { expect, test } from "bun:test";
 import { type EnvStruct, type EnvVarSpec, parseEnv } from "../src/index.ts";
 
 const spec = [
-	{ as: "apiKey", key: "VITE_FIREBASE_API_KEY" },
-	{ as: "projectId", key: "VITE_FIREBASE_PROJECT_ID" },
-	{ as: "emulatorHost", key: "VITE_FIRESTORE_EMULATOR_HOST" },
+	{ key: "VITE_FIREBASE_API_KEY", as: "apiKey" },
+	{ key: "VITE_FIREBASE_PROJECT_ID", as: "projectId" },
+	{ key: "VITE_FIRESTORE_EMULATOR_HOST", as: "emulatorHost" },
 ] as const satisfies EnvVarSpec[];
 
-test("`as` の名前で詰め直す(環境変数のキー名は結果に残らない)", () => {
+test("renames keys to `as` (the source key does not survive into the result)", () => {
 	const config = parseEnv(spec, {
 		VITE_FIREBASE_API_KEY: "abc",
 		VITE_FIREBASE_PROJECT_ID: "demo-app",
@@ -21,14 +21,14 @@ test("`as` の名前で詰め直す(環境変数のキー名は結果に残ら�
 	});
 });
 
-test("未設定の変数はキーごと省く", () => {
+test("drops unset values entirely", () => {
 	const config = parseEnv(spec, { VITE_FIREBASE_API_KEY: "abc" });
 
 	expect(config).toEqual({ apiKey: "abc" });
 	expect("emulatorHost" in config).toBe(false);
 });
 
-test("空文字列は未設定として扱う", () => {
+test("treats an empty string as unset", () => {
 	const config = parseEnv(spec, {
 		VITE_FIREBASE_API_KEY: "abc",
 		VITE_FIRESTORE_EMULATOR_HOST: "",
@@ -37,7 +37,7 @@ test("空文字列は未設定として扱う", () => {
 	expect(config).toEqual({ apiKey: "abc" });
 });
 
-test("spec にない環境変数は無視する", () => {
+test("ignores keys that are not in the spec", () => {
 	const config = parseEnv(spec, {
 		VITE_FIREBASE_API_KEY: "abc",
 		AWS_SECRET_ACCESS_KEY: "leaked",
@@ -46,11 +46,29 @@ test("spec にない環境変数は無視する", () => {
 	expect(config).toEqual({ apiKey: "abc" });
 });
 
-test("spec が空なら空オブジェクト", () => {
+test("returns an empty object for an empty spec", () => {
 	expect(parseEnv([], { VITE_FIREBASE_API_KEY: "abc" })).toEqual({});
 });
 
-// ─── 型レベルのテスト(typecheck が通ること自体が検証) ───
+// ─── `as` omitted ───
+
+const bareSpec = [
+	{ key: "HOME" },
+	{ key: "PORT" },
+	{ key: "USER", as: "user" },
+] as const satisfies EnvVarSpec[];
+
+test("falls back to `key` as the property name when `as` is omitted", () => {
+	const config = parseEnv(bareSpec, {
+		HOME: "/Users/rin",
+		PORT: "3000",
+		USER: "rin",
+	});
+
+	expect(config).toEqual({ HOME: "/Users/rin", PORT: "3000", user: "rin" });
+});
+
+// ─── Type-level tests (a passing typecheck is the assertion) ───
 
 type Equal<X, Y> =
 	(<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
@@ -65,12 +83,19 @@ type _StructKeysAreAliases = Expect<
 	>
 >;
 
-test("型: 環境変数のキー名ではアクセスできない", () => {
+type _StructFallsBackToKey = Expect<
+	Equal<
+		EnvStruct<typeof bareSpec>,
+		{ HOME?: string; PORT?: string; user?: string }
+	>
+>;
+
+test("type: a renamed key is not reachable under its source name", () => {
 	const config = parseEnv(spec, {});
 
-	// @ts-expect-error 結果のキーは `as` の別名のみ
+	// @ts-expect-error the result is keyed by `as` only
 	config.VITE_FIREBASE_API_KEY;
-	// @ts-expect-error spec にない別名は生えない
+	// @ts-expect-error names outside the spec do not exist
 	config.nonExistent;
 
 	expect(config).toEqual({});

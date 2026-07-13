@@ -1,18 +1,22 @@
 # simpleenvstruct
 
-Read environment variables into a typed struct from a declarative spec.
+Read values out of a flat string map into a typed struct, following a declarative spec.
 
-One file, zero dependencies, no globals. It renames `SCREAMING_SNAKE_CASE` env keys
-into the property names your code actually wants to use, and gives you a precise
-TypeScript type for the result — nothing more.
+The intended use — the one it is named and designed for — is **environment variables**:
+renaming `SCREAMING_SNAKE_CASE` keys into the property names your code actually wants,
+and getting a precise TypeScript type for the result. Nothing in the implementation is
+specific to them, though. The source is just a `Record<string, string | undefined>`, so
+`process.env`, `import.meta.env`, a parsed `.env`, or any flat string map works the same.
+
+One file, zero dependencies, no globals.
 
 ```ts
 import { parseEnv, type EnvVarSpec } from "simpleenvstruct";
 
 const spec = [
-  { as: "apiKey", key: "VITE_FIREBASE_API_KEY" },
-  { as: "projectId", key: "VITE_FIREBASE_PROJECT_ID" },
-  { as: "emulatorHost", key: "VITE_FIRESTORE_EMULATOR_HOST" },
+  { key: "VITE_FIREBASE_API_KEY", as: "apiKey" },
+  { key: "VITE_FIREBASE_PROJECT_ID", as: "projectId" },
+  { key: "VITE_FIRESTORE_EMULATOR_HOST", as: "emulatorHost" },
 ] as const satisfies EnvVarSpec[];
 
 const config = parseEnv(spec, import.meta.env);
@@ -21,8 +25,15 @@ const config = parseEnv(spec, import.meta.env);
 initializeApp({ apiKey: config.apiKey, projectId: config.projectId });
 ```
 
-`as const satisfies EnvVarSpec[]` is what makes the alias names survive into the
-type. Without `as const` the spec widens to `string` and you get `{}`.
+`as` is optional. Omit it and the key is used as the property name as-is:
+
+```ts
+const config = parseEnv([{ key: "PORT" }, { key: "HOME" }] as const, process.env);
+//    ^? { PORT?: string; HOME?: string }
+```
+
+`as const satisfies EnvVarSpec[]` is what makes the names survive into the type.
+Without `as const` the spec widens to `string` and you get `{}`.
 
 ## Install
 
@@ -34,29 +45,29 @@ npm install simpleenvstruct   # or: pnpm add simpleenvstruct
 
 ### `parseEnv(spec, env)`
 
-| Param  | Type                              | Meaning                                                     |
-| ------ | --------------------------------- | ----------------------------------------------------------- |
-| `spec` | `readonly EnvVarSpec[]`           | Mappings of `{ as, key }` — `as` is the output property name |
+| Param  | Type                                  | Meaning                                                        |
+| ------ | ------------------------------------- | -------------------------------------------------------------- |
+| `spec` | `readonly EnvVarSpec[]`               | `{ key, as? }` entries — `as` is the output property name       |
 | `env`  | `Record<string, string \| undefined>` | The source: `process.env`, `import.meta.env`, or a plain object |
 
-Returns an object whose keys are the `as` names.
+Returns an object keyed by `as`, falling back to `key` where `as` is omitted.
 
-The `env` source is always an explicit argument — the library never touches
-`process.env` or `import.meta` on its own, so the same build works in Node, in the
-browser, and in tests where you hand it a fixture object.
+The source is always an explicit argument — the library never reaches for `process.env`
+or `import.meta` on its own, so the same build runs in Node, in the browser, and in tests
+where you hand it a fixture object.
 
 ### Behavior
 
-- A variable that is **unset or an empty string is omitted from the result entirely** —
+- A value that is **unset or an empty string is omitted from the result entirely** —
   `parseEnv` never throws. Every property is therefore optional in the returned type.
-- Env keys that are not in the spec are ignored, so unrelated secrets in `process.env`
+- Keys that are not in the spec are ignored, so unrelated secrets sitting in `process.env`
   can't leak into the struct by accident.
 - Values are returned as-is: no trimming, no coercion to number/boolean, no parsing.
 
 ### `EnvVarSpec` / `EnvStruct<T>` / `EnvSource`
 
 ```ts
-type EnvVarSpec = { as: string; key: string };
+type EnvVarSpec = { key: string; as?: string };
 type EnvSource = Record<string, string | undefined>;
 type EnvStruct<T extends readonly EnvVarSpec[]>; // the struct type parseEnv returns
 ```
@@ -66,16 +77,16 @@ Use `EnvStruct<typeof spec>` when you want to name the config type in a signatur
 ## Non-goals
 
 Required-key enforcement, default values, `.env` file loading, and type coercion are all
-deliberately absent — they are what makes an env library grow. Validate what you need at
-the call site:
+deliberately absent — they are what makes a library like this grow. Validate what you need
+at the call site:
 
 ```ts
 const config = parseEnv(spec, process.env);
 if (!config.apiKey) throw new Error("VITE_FIREBASE_API_KEY is not set");
 ```
 
-If you want required/default/fallback declarations handled *inside* the spec, this
-library is the wrong size for you.
+If you want required / default / fallback declarations handled *inside* the spec, use
+[envstruct](https://www.npmjs.com/package/envstruct) instead — same spec shape, one level up.
 
 ## Development
 
@@ -96,32 +107,44 @@ MIT
 
 # simpleenvstruct（日本語）
 
-宣言的な spec から環境変数を読み出し、型のついた構造体にして返すだけのライブラリ。
-1ファイル・依存ゼロ・グローバル参照なし。
+宣言的な spec に従って、フラットな文字列マップから値を読み出し、型のついた構造体にして返す。
 
-`VITE_FIREBASE_API_KEY` のような環境変数のキー名を、コード側で使いたいプロパティ名
-（`apiKey`）に付け替え、その結果に正確な TypeScript の型を与える。それ以上のことはしない。
+**主に想定している用途は環境変数**で、名前も設計もそこに合わせてある。
+`VITE_FIREBASE_API_KEY` のようなキー名を、コード側で使いたいプロパティ名（`apiKey`）に
+付け替え、その結果に正確な TypeScript の型を与える。
+ただし実装に環境変数固有の処理はない。読み出し元は `Record<string, string | undefined>` に
+過ぎないので、`process.env` でも `import.meta.env` でも、パース済みの `.env` でも、
+任意のフラットな文字列マップでも同じように動く。
+
+1ファイル・依存ゼロ・グローバル参照なし。
 
 ```ts
 const spec = [
-  { as: "apiKey", key: "VITE_FIREBASE_API_KEY" },
-  { as: "emulatorHost", key: "VITE_FIRESTORE_EMULATOR_HOST" },
+  { key: "VITE_FIREBASE_API_KEY", as: "apiKey" },
+  { key: "VITE_FIRESTORE_EMULATOR_HOST", as: "emulatorHost" },
 ] as const satisfies EnvVarSpec[];
 
 const config = parseEnv(spec, import.meta.env);
 // 型: { apiKey?: string; emulatorHost?: string }
 ```
 
-`as const satisfies EnvVarSpec[]` を付けることで別名がリテラル型として型に残る。
+`as` は省略可能で、省いた場合は `key` がそのままプロパティ名になる。
+
+```ts
+const config = parseEnv([{ key: "PORT" }, { key: "HOME" }] as const, process.env);
+// 型: { PORT?: string; HOME?: string }
+```
+
+`as const satisfies EnvVarSpec[]` を付けることで名前がリテラル型として型に残る。
 `as const` がないと spec が `string` に広がり、結果の型は `{}` になる。
 
 ## 振る舞い
 
-- **未設定・空文字列の変数はキーごと省く。throw はしない。** そのため返り値の全プロパティが optional。
-- spec にない環境変数は無視するので、`process.env` の無関係な秘密情報が構造体に紛れ込まない。
+- **未設定・空文字列の値はキーごと省く。throw はしない。** そのため返り値の全プロパティが optional。
+- spec にないキーは無視するので、`process.env` の無関係な秘密情報が構造体に紛れ込まない。
 - 値は加工しない（trim もしないし、number/boolean への変換もしない）。
-- 入力元（`process.env` / `import.meta.env`）は必ず引数で渡す。ライブラリ側からグローバルを
-  触らないため、Node・ブラウザ・テスト（フィクスチャを渡す）で同じコードが動く。
+- 読み出し元は必ず引数で渡す。ライブラリ側からグローバルを触らないため、Node・ブラウザ・
+  テスト（フィクスチャを渡す）で同じコードが動く。
 
 ## やらないこと
 
@@ -132,4 +155,5 @@ const config = parseEnv(spec, process.env);
 if (!config.apiKey) throw new Error("VITE_FIREBASE_API_KEY is not set");
 ```
 
-必須・デフォルト・フォールバックを spec の中で宣言したい場合、このライブラリはサイズが合わない。
+必須・デフォルト・フォールバックを spec の中で宣言したい場合は
+[envstruct](https://www.npmjs.com/package/envstruct) を使う（spec の形は同じで、一段上）。
