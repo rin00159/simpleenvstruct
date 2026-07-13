@@ -1,6 +1,6 @@
 {
 	"name": "simpleenvstruct",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"description": "Read environment variables into a typed struct from a declarative spec. One file, zero dependencies.",
 	"keywords": [
 		"env",
