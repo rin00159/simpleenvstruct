@@ -41,5 +41,13 @@
 		"@biomejs/biome": "2.5.3",
 		"@types/bun": "^1.3.0",
 		"typescript": "^5.4.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/rin00159/simpleenvstruct.git"
+	},
+	"homepage": "https://github.com/rin00159/simpleenvstruct#readme",
+	"bugs": {
+		"url": "https://github.com/rin00159/simpleenvstruct/issues"
 	}
 }
