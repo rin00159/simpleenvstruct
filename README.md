@@ -86,7 +86,7 @@ if (!config.apiKey) throw new Error("VITE_FIREBASE_API_KEY is not set");
 ```
 
 If you want required / default / fallback declarations handled *inside* the spec, use
-[envstruct](https://www.npmjs.com/package/envstruct) instead — same spec shape, one level up.
+[fullenvstruct](https://www.npmjs.com/package/fullenvstruct) instead — same spec shape, one level up.
 
 ## Development
 
@@ -156,4 +156,4 @@ if (!config.apiKey) throw new Error("VITE_FIREBASE_API_KEY is not set");
 ```
 
 必須・デフォルト・フォールバックを spec の中で宣言したい場合は
-[envstruct](https://www.npmjs.com/package/envstruct) を使う（spec の形は同じで、一段上）。
+[fullenvstruct](https://www.npmjs.com/package/fullenvstruct) を使う（spec の形は同じで、一段上）。
